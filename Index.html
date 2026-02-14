@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Naruto Wheel - Ultimate System</title>
+    <style>
+        :root {
+            --accent: #00d2ff;
+            --gold: #ffd700;
+            --danger: #ff4d4d;
+            --bg: #050505;
+            --panel: #1a1a20;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: white;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; padding: 10px; overflow-x: hidden;
+        }
+
+        /* --- BARRE DU HAUT --- */
+        .top-bar {
+            width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; margin-bottom: 10px;
+        }
+        .logo { font-weight: 900; font-size: 1.2rem; color: var(--accent); letter-spacing: 2px; }
+        .top-btn {
+            background: var(--glass); border: 1px solid #333; color: white;
+            padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 1.2rem; transition: 0.3s;
+        }
+        .top-btn:hover { background: var(--accent); color: black; }
+
+        /* --- CONTENEUR PRINCIPAL --- */
+        .layout {
+            display: flex; flex-direction: row; gap: 30px; 
+            width: 100%; max-width: 1000px; justify-content: center; align-items: flex-start;
+            transition: 0.5s;
+        }
+
+        /* --- ROUE --- */
+        #wheel-wrapper {
+            position: relative; width: 350px; height: 350px; flex-shrink: 0;
+            transition: all 0.5s ease;
+        }
+        canvas { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 0 40px rgba(0, 210, 255, 0.2); }
+        #pointer {
+            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 20px solid transparent;
+            border-right: 20px solid transparent; border-top: 40px solid var(--accent);
+            z-index: 10; filter: drop-shadow(0 5px 5px black);
+        }
+
+        /* --- PANNEAU DE CONTRÔLE --- */
+        .main-ui {
+            flex: 1; min-width: 300px; background: var(--panel); 
+            padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            border: 1px solid #333; transition: 0.5s;
+        }
+
+        /* --- MODE "ROUE EN GROS" (FOCUS) --- */
+        body.focus-mode .main-ui, body.focus-mode .top-bar { display: none; }
+        body.focus-mode #wheel-wrapper {
+            transform: scale(1.5); margin-top: 10vh;
+        }
+        body.focus-mode #exit-focus { display: block; }
+        body.focus-mode #floating-spin { display: block; }
+        
+        #exit-focus {
+            position: fixed; top: 20px; right: 20px; z-index: 100; display: none;
+            background: rgba(0,0,0,0.5); border: 1px solid white; color: white; padding: 10px; border-radius: 50%;
+        }
+        #floating-spin {
+            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 100; display: none;
+            background: var(--accent); color: black; padding: 15px 40px; font-weight: bold; border-radius: 30px; 
+            font-size: 1.5rem; border: none; box-shadow: 0 0 30px var(--accent); cursor: pointer;
+        }
+
+        /* --- RESPONSIVE MOBILE --- */
+        @media (max-width: 800px) {
+            .layout { flex-direction: column; align-items: center; }
+            #wheel-wrapper { width: 300px; height: 300px; }
+            .main-ui { width: 100%; box-sizing: border-box; }
+            body.focus-mode #wheel-wrapper { transform: scale(1.1); margin-top: 5vh; }
+        }
+
+        /* --- BOUTON COMBAT --- */
+        .combat-toggle {
+            background: linear-gradient(45deg, #111, #222); padding: 15px; border-radius: 12px; margin-bottom: 20px;
+            display: flex; align-items: center; justify-content: space-between; border: 2px solid #444; cursor: pointer;
+        }
+        .combat-toggle.active { border-color: var(--danger); background: linear-gradient(45deg, #440000, #000044); box-shadow: 0 0 15px rgba(255, 0, 0, 0.4); }
+        .combat-toggle.hidden { display: none; }
+
+        /* --- UI ELEMENTS --- */
+        .row { display: flex; gap: 10px; margin-bottom: 15px; }
+        input, select { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #0c0c12; color: white; outline:none; }
+        button { padding: 10px 20px; border-radius: 8px; border: none; background: var(--accent); color: black; font-weight: bold; cursor: pointer; }
+        .spin-btn { width: 100%; font-size: 1.2rem; background: var(--accent); margin-top: 10px; padding: 15px; }
+        .spin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .player-item { display: flex; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.05); margin-bottom: 6px; border-radius: 8px; }
+        .btn-del { background: none; color: var(--danger); font-size: 1.2rem; padding: 0; }
+        .rank-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #333; font-size: 0.9rem; }
+
+        /* --- MODAL AIDE --- */
+        #help-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 5000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .help-content {
+            background: var(--panel); padding: 30px; border-radius: 15px; max-width: 500px;
+            border: 1px solid var(--accent); max-height: 80vh; overflow-y: auto;
+        }
+        .help-content h2 { color: var(--accent); margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .help-item { margin-bottom: 15px; }
+        .help-item strong { color: var(--gold); display: block; margin-bottom: 5px; }
+
+        /* --- VERSUS SCREEN --- */
+        #versus-screen { position: fixed; inset: 0; z-index: 1500; display: none; background: black; }
+        .vs-side { width: 50%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: absolute; top:0; }
+        .vs-blue { left: 0; background: linear-gradient(to right, #000022, #0044cc); border-right: 2px solid white; }
+        .vs-red { right: 0; background: linear-gradient(to left, #220000, #cc0044); border-left: 2px solid white; }
+        .vs-name { font-size: 2.5rem; font-weight: 900; text-transform: uppercase; text-shadow: 0 0 20px black; z-index: 2; text-align: center; }
+        .vs-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100px; height: 100px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: 900; color: black; border: 5px solid black; z-index: 1600; }
+
+        /* --- VIDÉO --- */
+        #combat-overlay { position: fixed; inset: 0; background: black; z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        video { max-width: 100%; max-height: 100%; }
+        #skip-btn { position: absolute; top: 20px; right: 20px; z-index: 2010; background: rgba(255, 0, 0, 0.5); color: white; border: 1px solid white; padding: 10px 20px; cursor: pointer; border-radius: 5px; }
+
+        /* --- MODAL FIN --- */
+        #final-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 3000; }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <div class="logo">SHINOBI WHEEL</div>
+        <div style="display:flex; gap:10px;">
+            <button class="top-btn" onclick="toggleHelp()" title="Comment ça marche ?">❓</button>
+            <button class="top-btn" onclick="toggleFocusMode()" title="Mode Cinéma">⛶</button>
+        </div>
+    </div>
+
+    <div class="layout">
+        <div id="wheel-wrapper">
+            <div id="pointer"></div>
+            <canvas id="wheelCanvas"></canvas>
+        </div>
+
+        <div class="main-ui">
+            <div id="statusLabel" style="text-align:center; color:var(--accent); font-weight:bold; margin-bottom:15px;">PRÊT</div>
+
+            <div class="combat-toggle" id="combatBtn" onclick="toggleCombatMode()">
+                <span style="font-weight: 900;">⚔️ COMBAT FINAL (TOP 2)</span>
+                <span id="combatStatus">OFF</span>
+            </div>
+            
+            <div class="row">
+                <input type="text" id="nameInput" placeholder="Ajouter un ninja..." onkeypress="if(event.key==='Enter') addName()">
+                <button onclick="addName()">OK</button>
+            </div>
+
+            <div class="row">
+                <select id="modeSelect" onchange="changeMode()">
+                    <option value="classic">Tirage Classique</option>
+                    <option value="elimination">Mode Élimination</option>
+                    <option value="battle">Battle de Points</option>
+                </select>
+                <input type="number" id="winCount" value="1" min="1" style="max-width: 60px;" title="Nombre de gagnants">
+            </div>
+
+            <button class="spin-btn" id="spinBtn" onclick="handleSpin()">LANCER LA ROUE</button>
+
+            <div style="margin-top:20px;">
+                <div id="rankPanel" style="display:none; margin-bottom:15px;">
+                    <h4 style="margin:0 0 10px 0; color:var(--gold); text-align:center;">CLASSEMENT</h4>
+                    <div id="rankList"></div>
+                </div>
+                <h4 style="margin:0 0 10px 0; color:#888; font-size: 0.8rem; text-align:center;">PARTICIPANTS</h4>
+                <div id="player-list-display"></div>
+            </div>
+        </div>
+    </div>
+
+    <button id="exit-focus" onclick="toggleFocusMode()">✖</button>
+    <button id="floating-spin" onclick="handleSpin()">LANCER</button>
+
+    <div id="help-modal" onclick="if(event.target===this) toggleHelp()">
+        <div class="help-content">
+            <h2>📜 Comment ça marche ?</h2>
+            <div class="help-item">
+                <strong>1. Mode Classique</strong>
+                La roue tourne et désigne un ou plusieurs gagnants selon le nombre choisi. Idéal pour un tirage au sort simple.
+            </div>
+            <div class="help-item">
+                <strong>2. Mode Élimination (Battle Royale)</strong>
+                La roue élimine les participants un par un. Le dernier qui reste gagne !
+            </div>
+            <div class="help-item">
+                <strong>3. Battle de Points</strong>
+                La roue tourne en boucle. Chaque sélection donne +20 points. Le premier à 100 points gagne la coupe.
+            </div>
+            <div class="help-item">
+                <strong>⚔️ COMBAT FINAL</strong>
+                Activez ce bouton pour un final épique ! La roue sélectionne 2 finalistes (ou les 2 derniers survivants) et lance une vidéo de combat entre eux pour décider du vainqueur.
+            </div>
+            <button onclick="toggleHelp()" style="width:100%; margin-top:10px;">J'ai compris !</button>
+        </div>
+    </div>
+
+    <div id="versus-screen" onclick="startVideoNow()">
+        <div class="vs-side vs-blue">
+            <div style="color:white; font-weight:bold;">ÉQUIPE BLEUE</div>
+            <div class="vs-name" id="name-blue">P1</div>
+        </div>
+        <div class="vs-center">VS</div>
+        <div class="vs-side vs-red">
+            <div style="color:white; font-weight:bold;">ÉQUIPE ROUGE</div>
+            <div class="vs-name" id="name-red">P2</div>
+        </div>
+    </div>
+
+    <div id="combat-overlay"></div>
+
+    <div id="final-modal" onclick="this.style.display='none'">
+        <h2 id="modalTitle" style="color:var(--gold); letter-spacing:2px;">RÉSULTAT</h2>
+        <h1 id="ultimateWinner" style="font-size: 3rem; text-shadow: 0 0 30px var(--accent); margin: 20px 0;">-</h1>
+        <p style="opacity:0.7">Cliquez pour fermer</p>
+    </div>
+
+<script>
+    // ================= LIENS DISCORD =================
+    const LIEN_VIDEO_BLEU = "https://cdn.discordapp.com/attachments/1288202560422936596/1472025905017782302/1771027037223.mp4?ex=69911274&is=698fc0f4&hm=aa5c3632dae0569eefe3b20186f155d94e37ac92f75d25edf27141028f54daa0&"; 
+    const LIEN_VIDEO_ROUGE = "https://cdn.discordapp.com/attachments/1288202560422936596/1472025905692934226/1771027111464.mp4?ex=69911274&is=698fc0f4&hm=f8105c3540977823ad3753610f33d3132f4aec3984005c8acf5ab3233f08fca9&";
+    // =================================================
+
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+    let players = JSON.parse(localStorage.getItem('ninjaFullSave')) || [
+        {name:"Naruto", score:0}, {name:"Sasuke", score:0}, 
+        {name:"Sakura", score:0}, {name:"Kakashi", score:0}
+    ];
+    let currentRotation = 0;
+    let isSpinning = false;
+    let combatModeActive = false;
+    let pendingCombat = null;
+    let vsTimeout = null;
+
+    function init() { canvas.width = 700; canvas.height = 700; changeMode(); }
+
+    // --- FONCTIONS UI ---
+    function toggleHelp() {
+        const modal = document.getElementById('help-modal');
+        modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function toggleFocusMode() {
+        document.body.classList.toggle('focus-mode');
+        // Redessiner la roue pour s'assurer qu'elle est nette
+        renderWheel();
+    }
+
+    function toggleCombatMode() {
+        combatModeActive = !combatModeActive;
+        const btn = document.getElementById('combatBtn');
+        btn.classList.toggle('active', combatModeActive);
+        document.getElementById('combatStatus').innerText = combatModeActive ? "ON" : "OFF";
+        document.getElementById('winCount').style.opacity = combatModeActive ? "0.3" : "1";
+        document.getElementById('winCount').disabled = combatModeActive;
+    }
+
+    function changeMode() {
+        const mode = document.getElementById('modeSelect').value;
+        const combatBtn = document.getElementById('combatBtn');
+        const rankPanel = document.getElementById('rankPanel');
+        const winCount = document.getElementById('winCount');
+
+        if (mode === "battle") {
+            combatBtn.classList.add("hidden"); 
+            rankPanel.style.display = "block";
+            winCount.style.display = "none";
+            updateRankings();
+        } else {
+            combatBtn.classList.remove("hidden");
+            rankPanel.style.display = "none";
+            winCount.style.display = "block";
+        }
+        updateUI();
+    }
+
+    function addName() {
+        const val = document.getElementById('nameInput').value.trim();
+        if(val) { players.push({name: val, score:0}); document.getElementById('nameInput').value=""; save(); }
+    }
+    function removePlayer(i) { players.splice(i, 1); save(); }
+    function save() { 
+        localStorage.setItem('ninjaFullSave', JSON.stringify(players)); 
+        updateUI(); 
+        if(document.getElementById('modeSelect').value === "battle") updateRankings();
+    }
+
+    function updateUI() {
+        document.getElementById('player-list-display').innerHTML = players.map((p,i)=>`
+            <div class="player-item">
+                <span>${p.name}</span>
+                <button class="btn-del" onclick="removePlayer(${i})">×</button>
+            </div>
+        `).join('');
+        renderWheel();
+    }
+    function updateRankings() {
+        const sorted = [...players].sort((a,b) => b.score - a.score);
+        document.getElementById('rankList').innerHTML = sorted.map(p => `
+            <div class="rank-item" style="${p.score >= 100 ? 'color:var(--gold); font-weight:bold;' : ''}">
+                <span>${p.name}</span><span>${p.score} pts</span>
+            </div>
+        `).join('');
+    }
+
+    // --- MOTEUR ROUE ---
+    function renderWheel() {
+        const n = players.length; if(n===0) return;
+        const cx=350, cy=350, r=330; ctx.clearRect(0,0,700,700);
+        players.forEach((p, i) => {
+            const slice = (2*Math.PI/n); const start = i*slice+currentRotation;
+            ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+slice);
+            ctx.fillStyle = `hsl(${(i*360/n)}, 65%, 40%)`; ctx.fill();
+            ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.stroke();
+            ctx.save(); ctx.translate(cx,cy); ctx.rotate(start+slice/2);
+            ctx.textAlign="right"; ctx.fillStyle="white"; ctx.font="bold 24px Arial";
+            ctx.fillText(p.name.substring(0,15), r-20, 10); ctx.restore();
+        });
+    }
+
+    async function handleSpin() {
+        if(isSpinning || players.length < 2) return;
+        const mode = document.getElementById('modeSelect').value;
+        const count = parseInt(document.getElementById('winCount').value) || 1;
+
+        if (mode === "battle") {
+            players.forEach(p => p.score = 0); updateRankings();
+            let winnerFound = null;
+            while(!winnerFound) {
+                const name = await spin();
+                const p = players.find(x => x.name === name);
+                p.score += 20; updateRankings();
+                if (p.score >= 100) winnerFound = name;
+                else await new Promise(r => setTimeout(r, 1000));
+            }
+            showFinalResult(winnerFound, "CHAMPION");
+        }
+        else if (mode === "elimination") {
+            let tempPlayers = [...players];
+            const stopAt = combatModeActive ? 2 : count;
+            while (tempPlayers.length > stopAt) {
+                const out = await spin();
+                tempPlayers = tempPlayers.filter(p => p.name !== out);
+                let backup = players; players = tempPlayers; renderWheel();
+                await new Promise(r => setTimeout(r, 1500));
+                players = backup; 
+            }
+            if (combatModeActive && tempPlayers.length === 2) {
+                prepareVersus(tempPlayers[0].name, tempPlayers[1].name);
+            } else {
+                showFinalResult(tempPlayers[0].name, "SURVIVANT");
+            }
+        }
+        else { // Classic
+            let winners = [];
+            let pool = [...players];
+            const loops = combatModeActive ? 2 : Math.min(count, players.length);
+            for(let i=0; i<loops; i++) {
+                const w = await spin();
+                winners.push(w);
+                pool = pool.filter(p => p.name !== w);
+                let backup = players; players = pool; renderWheel();
+                await new Promise(r => setTimeout(r, 1500));
+                players = backup;
+            }
+            if (combatModeActive && winners.length === 2) {
+                prepareVersus(winners[0], winners[1]);
+            } else {
+                showFinalResult(winners.join(" & "), "LES ÉLUS");
+            }
+        }
+        players = JSON.parse(localStorage.getItem('ninjaFullSave')) || players; renderWheel();
+    }
+
+    function spin() {
+        return new Promise(resolve => {
+            isSpinning = true; 
+            document.getElementById('spinBtn').disabled = true;
+            document.getElementById('floating-spin').disabled = true;
+            const duration = 2500; const start = performance.now();
+            const startRot = currentRotation; const extra = (5+Math.random()*5)*2*Math.PI;
+            function animate(now) {
+                const progress = Math.min((now-start)/duration, 1);
+                currentRotation = startRot + extra * (1 - Math.pow(1-progress, 4));
+                renderWheel();
+                if(progress<1) requestAnimationFrame(animate);
+                else {
+                    isSpinning = false; 
+                    document.getElementById('spinBtn').disabled = false;
+                    document.getElementById('floating-spin').disabled = false;
+                    const n = players.length; const slice = (2*Math.PI)/n;
+                    const norm = (currentRotation + (1.5*Math.PI)) % (2*Math.PI);
+                    const index = (n - Math.floor(norm/slice)) % n;
+                    resolve(players[index === n ? 0 : index].name);
+                }
+            }
+            requestAnimationFrame(animate);
+        });
+    }
+
+    // --- COMBAT & VERSUS ---
+    function prepareVersus(p1, p2) {
+        pendingCombat = { blue: p1, red: p2 };
+        document.getElementById('name-blue').innerText = p1;
+        document.getElementById('name-red').innerText = p2;
+        document.getElementById('versus-screen').style.display = "block";
+        vsTimeout = setTimeout(startVideoNow, 4000);
+    }
+
+    function startVideoNow() {
+        if(vsTimeout) clearTimeout(vsTimeout);
+        document.getElementById('versus-screen').style.display = "none";
+        
+        const overlay = document.getElementById('combat-overlay');
+        overlay.style.display = "flex";
+
+        const p1Wins = Math.random() > 0.5;
+        window.tempWinner = p1Wins ? pendingCombat.blue : pendingCombat.red;
+        const videoSrc = p1Wins ? LIEN_VIDEO_BLEU : LIEN_VIDEO_ROUGE;
+
+        overlay.innerHTML = `
+            <button id="skip-btn" onclick="forceStopCombat()">PASSER LA VIDÉO ⏩</button>
+            <video id="battleVideo" src="${videoSrc}" autoplay style="width:100%; height:100%; object-fit:contain;"></video>
+        `;
+
+        const vid = document.getElementById('battleVideo');
+        vid.volume = 0.8;
+        vid.onended = function() { forceStopCombat(); };
+        vid.play().catch(e => { vid.controls = true; });
+    }
+
+    function forceStopCombat() {
+        document.getElementById('combat-overlay').style.display = "none";
+        document.getElementById('combat-overlay').innerHTML = "";
+        showFinalResult(window.tempWinner, "VAINQUEUR");
+    }
+
+    function showFinalResult(name, title) {
+        document.getElementById('modalTitle').innerText = title;
+        document.getElementById('ultimateWinner').innerText = name;
+        document.getElementById('final-modal').style.display = "flex";
+    }
+
+    init();
+</script>
+</body>
+</html>
